@@ -98,6 +98,12 @@
   .pass .row b { color:var(--dark); }
   .pass .ok { background:#E8F5E9; color:var(--green); border-radius:12px; padding:12px; font-weight:bold; text-align:center; font-size:17px; }
   .pass .code { text-align:center; font-family: 'Courier New', monospace; font-size:13px; color:var(--muted); }
+  .sigwrap { background:#fff; border-radius:14px; padding:10px; }
+  .sigwrap .lbl { display:flex; justify-content:space-between; align-items:center; color:#1F2328; font-size:14px; font-weight:bold; margin-bottom:6px; }
+  .sigwrap button { background:none; border:1px solid #9CA3AF; color:#374151; border-radius:8px; padding:4px 10px; font-size:13px; }
+  #sig { width:100%; height:170px; display:block; border:2px dashed #CBD5E1; border-radius:10px; touch-action:none; background:#fff; }
+  .pass .sigimg { border-bottom:2px solid #1F2328; text-align:center; } .pass .sigimg img { height:80px; max-width:100%; }
+  .pass .siglbl { text-align:center; font-size:12px; color:var(--muted); margin-top:-6px; }
   .sent { font-size:13px; color:#A8AEB5; text-align:center; }
 </style>
 </head>
@@ -180,7 +186,8 @@
   <label class="chk"><input type="checkbox" class="cb">Seguiré siempre las instrucciones del guía.</label>
   <label class="chk"><input type="checkbox" class="cb">No tocaré máquinas, herramientas ni materiales.</label>
   <label class="chk"><input type="checkbox" class="cb">Si veo algo peligroso, avisaré de inmediato.</label>
-  <button class="btn" id="bPass" disabled>Obtener mi pase</button>
+  <div class="sigwrap"><div class="lbl"><span>Firma aquí con tu dedo</span><button type="button" id="bClr">Borrar</button></div><canvas id="sig"></canvas></div>
+  <button class="btn" id="bPass" disabled>Firmar y obtener mi pase</button>
 </div></section>
 
 <!-- PASE -->
@@ -193,6 +200,8 @@
       <div class="row"><span>Fecha</span><b id="pDate"></b></div>
       <div class="row"><span>Puntaje desafío</span><b id="pPts"></b></div>
       <div class="row"><span>Aciertos / Errores</span><b id="pAE"></b></div>
+      <div class="sigimg"><img id="pSig" alt="Firma"></div>
+      <div class="siglbl">Firma del participante</div>
       <div class="ok">✔ HABILITADO/A PARA INGRESAR</div>
       <div class="code" id="pCode"></div>
     </div>
@@ -336,8 +345,22 @@ function openCommit(){
   const t=totals();
   $('cPts').textContent=t.pts; $('cOk').textContent=t.ok+'/'+t.tot; $('cBad').textContent=t.bad;
   show('s-commit');
+  setTimeout(sizeSig,60);
 }
-document.querySelectorAll('.cb').forEach(c=>c.onchange=()=>{ $('bPass').disabled = ![...document.querySelectorAll('.cb')].every(x=>x.checked); });
+let signed=false, sigData='';
+function checkPass(){ $('bPass').disabled = !([...document.querySelectorAll('.cb')].every(x=>x.checked) && signed); }
+document.querySelectorAll('.cb').forEach(c=>c.onchange=checkPass);
+const sig=$('sig'), sctx=sig.getContext('2d');
+function sizeSig(){ const r=sig.getBoundingClientRect(); if(!r.width) return; const k=window.devicePixelRatio||1; sig.width=r.width*k; sig.height=r.height*k; sctx.setTransform(k,0,0,k,0,0); sctx.lineWidth=2.6; sctx.lineCap='round'; sctx.lineJoin='round'; sctx.strokeStyle='#0D47A1'; signed=false; checkPass(); }
+let drawing=false, last=null, ink=0;
+const pos=e=>{ const r=sig.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; };
+sig.addEventListener('pointerdown',e=>{ drawing=true; last=pos(e); sig.setPointerCapture(e.pointerId); e.preventDefault(); });
+sig.addEventListener('pointermove',e=>{ if(!drawing) return; const p=pos(e); sctx.beginPath(); sctx.moveTo(last[0],last[1]); sctx.lineTo(p[0],p[1]); sctx.stroke(); ink+=Math.hypot(p[0]-last[0],p[1]-last[1]); last=p; if(ink>60 && !signed){ signed=true; checkPass(); } e.preventDefault(); });
+['pointerup','pointercancel','pointerleave'].forEach(ev=>sig.addEventListener(ev,()=>{ drawing=false; }));
+$('bClr').onclick=()=>{ sctx.clearRect(0,0,sig.width,sig.height); ink=0; signed=false; checkPass(); };
+function sigPNG(){ // recorta y reduce la firma
+  const c=document.createElement('canvas'); c.width=480; c.height=170; const x=c.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(sig,0,0,c.width,c.height); return c.toDataURL('image/png'); }
 
 let code='';
 $('bPass').onclick = ()=>{
@@ -346,6 +369,7 @@ $('bPass').onclick = ()=>{
   $('pName').textContent=player.name; $('pCurso').textContent=player.curso||'—';
   $('pDate').textContent=d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
   $('pPts').textContent=t.pts+' pts'; $('pAE').textContent=t.ok+'/'+t.tot+'  ·  '+t.bad;
+  sigData=sigPNG(); $('pSig').src=sigData;
   $('pCode').textContent='Código '+code;
   show('s-pass');
   send(t,d);
@@ -357,18 +381,18 @@ function send(t,d){
   const data = { codigo:code, fecha:d.toLocaleString('es-CL'), nombre:player.name, curso:player.curso,
     n1_aciertos:r1.ok+'/'+r1.total, n1_errores:(r1.wrong||0)+(r1.blanks||0), n1_no_vistas:(r1.missed||[]).join('; '), n1_confusiones:(r1.wrongList||[]).join('; '),
     n2_aciertos:r2.ok+'/'+r2.total, n2_errores:(r2.wrong||0)+(r2.blanks||0), n2_no_vistas:(r2.missed||[]).join('; '), n2_confusiones:(r2.wrongList||[]).join('; '),
-    puntaje:t.pts, tiempo_seg:Math.round((Date.now()-player.start)/1000), compromiso:'Sí' };
+    puntaje:t.pts, tiempo_seg:Math.round((Date.now()-player.start)/1000), compromiso:'Sí', firma:sigData };
   $('sent').textContent='Enviando resultado…';
   fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)})
     .then(()=>{$('sent').textContent='✔ Resultado registrado';}).catch(()=>{$('sent').textContent='';});
 }
 
 $('bDl').onclick = ()=>{
-  const t=totals(), W=1080, H=1350, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const t=totals(), W=1080, H=1560, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const c=cv.getContext('2d');
   c.fillStyle='#1F2328'; c.fillRect(0,0,W,H);
   const rr=(x,y,w,h,r,f)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();c.fillStyle=f;c.fill();};
-  rr(70,90,940,1170,40,'#FFFFFF');
+  rr(70,90,940,1380,40,'#FFFFFF');
   c.save(); c.beginPath(); c.rect(70,90,940,260); c.clip(); rr(70,90,940,300,40,'#FFC20E'); c.restore();
   c.fillStyle='#1F2328'; c.font='bold 30px Arial'; c.fillText('PLANTA PROSIP · VISITA GUIADA',120,175);
   c.font='bold 64px Arial'; c.fillText('PASE DE INGRESO',120,255); c.fillText('SEGURO',120,325);
@@ -376,9 +400,11 @@ $('bDl').onclick = ()=>{
   c.fillText(nm,120,450);
   const rows=[['Curso',player.curso||'—'],['Fecha',$('pDate').textContent],['Puntaje desafío',t.pts+' pts'],['Aciertos / Errores',t.ok+'/'+t.tot+'  ·  '+t.bad]];
   rows.forEach(([k,v],i)=>{ const y=540+i*90; c.font='32px Arial'; c.fillStyle='#6B7280'; c.fillText(k,120,y); c.font='bold 34px Arial'; c.fillStyle='#1F2328'; c.textAlign='right'; c.fillText(v,960,y); c.textAlign='left'; c.fillStyle='#E5E7EB'; c.fillRect(120,y+28,840,3); });
-  rr(120,920,840,120,24,'#E8F5E9'); c.fillStyle='#2E7D32'; c.font='bold 46px Arial'; c.textAlign='center'; c.fillText('✔ HABILITADO/A PARA INGRESAR',540,997);
-  c.fillStyle='#6B7280'; c.font='28px Courier New'; c.fillText('Código '+code,540,1110);
-  c.font='26px Arial'; c.fillText('Muestra este pase al guía al ingresar a la planta',540,1180);
+  const sImg=$('pSig'); if(sImg.complete && sImg.naturalWidth) c.drawImage(sImg,290,860,500,177);
+  c.fillStyle='#1F2328'; c.fillRect(240,1045,600,3); c.fillStyle='#6B7280'; c.font='26px Arial'; c.textAlign='center'; c.fillText('Firma del participante',540,1085);
+  rr(120,1120,840,120,24,'#E8F5E9'); c.fillStyle='#2E7D32'; c.font='bold 46px Arial'; c.fillText('✔ HABILITADO/A PARA INGRESAR',540,1197);
+  c.fillStyle='#6B7280'; c.font='28px Courier New'; c.fillText('Código '+code,540,1310);
+  c.font='26px Arial'; c.fillText('Muestra este pase al guía al ingresar a la planta',540,1380);
   c.textAlign='left';
   const a=document.createElement('a'); a.download='Pase PROSIP '+player.name+'.png'; a.href=cv.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
 };
