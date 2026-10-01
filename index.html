@@ -116,8 +116,8 @@
   <p>Antes de entrar a la planta tienes que demostrar que sabes reconocer los peligros. Si completas el desafío, obtienes tu <b style="color:#fff">pase de ingreso seguro</b>.</p>
   <label class="f">Tu nombre y apellido</label>
   <input type="text" id="inName" maxlength="40" autocomplete="name" placeholder="Ej: Camila Soto">
-  <label class="f">Curso (opcional)</label>
-  <input type="text" id="inCurso" maxlength="20" placeholder="Ej: 3° Medio A">
+  <label class="f">Institución (opcional)</label>
+  <input type="text" id="inCurso" maxlength="40" placeholder="Ej: Liceo Los Ángeles">
   <div class="err" id="nameErr">Escribe tu nombre y apellido para continuar.</div>
   <button class="btn" id="bStart">Continuar</button>
 </div></section>
@@ -196,7 +196,7 @@
     <div class="top"><div class="k">PLANTA PROSIP · VISITA GUIADA</div><div class="t">PASE DE INGRESO SEGURO</div></div>
     <div class="body">
       <div class="name" id="pName"></div>
-      <div class="row"><span>Curso</span><b id="pCurso"></b></div>
+      <div class="row"><span>Institución</span><b id="pCurso"></b></div>
       <div class="row"><span>Fecha</span><b id="pDate"></b></div>
       <div class="row"><span>Puntaje desafío</span><b id="pPts"></b></div>
       <div class="row"><span>Aciertos / Errores</span><b id="pAE"></b></div>
@@ -398,8 +398,8 @@ $('bDl').onclick = ()=>{
   c.font='bold 64px Arial'; c.fillText('PASE DE INGRESO',120,255); c.fillText('SEGURO',120,325);
   c.font='bold 60px Arial'; let nm=player.name; while(c.measureText(nm).width>840) nm=nm.slice(0,-1);
   c.fillText(nm,120,450);
-  const rows=[['Curso',player.curso||'—'],['Fecha',$('pDate').textContent],['Puntaje desafío',t.pts+' pts'],['Aciertos / Errores',t.ok+'/'+t.tot+'  ·  '+t.bad]];
-  rows.forEach(([k,v],i)=>{ const y=540+i*90; c.font='32px Arial'; c.fillStyle='#6B7280'; c.fillText(k,120,y); c.font='bold 34px Arial'; c.fillStyle='#1F2328'; c.textAlign='right'; c.fillText(v,960,y); c.textAlign='left'; c.fillStyle='#E5E7EB'; c.fillRect(120,y+28,840,3); });
+  const rows=[['Institución',player.curso||'—'],['Fecha',$('pDate').textContent],['Puntaje desafío',t.pts+' pts'],['Aciertos / Errores',t.ok+'/'+t.tot+'  ·  '+t.bad]];
+  rows.forEach(([k,v],i)=>{ const y=540+i*90; c.font='32px Arial'; c.fillStyle='#6B7280'; c.fillText(k,120,y); c.font='bold 34px Arial'; c.fillStyle='#1F2328'; c.textAlign='right'; let vv=String(v); while(vv.length>1 && c.measureText(vv).width>560) vv=vv.slice(0,-1); if(vv!==String(v)) vv=vv.slice(0,-1)+'…'; c.fillText(vv,960,y); c.textAlign='left'; c.fillStyle='#E5E7EB'; c.fillRect(120,y+28,840,3); });
   const sImg=$('pSig'); if(sImg.complete && sImg.naturalWidth) c.drawImage(sImg,290,860,500,177);
   c.fillStyle='#1F2328'; c.fillRect(240,1045,600,3); c.fillStyle='#6B7280'; c.font='26px Arial'; c.textAlign='center'; c.fillText('Firma del participante',540,1085);
   rr(120,1120,840,120,24,'#E8F5E9'); c.fillStyle='#2E7D32'; c.font='bold 46px Arial'; c.fillText('✔ HABILITADO/A PARA INGRESAR',540,1197);
